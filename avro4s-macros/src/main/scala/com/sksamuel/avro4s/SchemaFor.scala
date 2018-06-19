@@ -20,6 +20,7 @@ import scala.reflect.runtime.universe._
 
 trait ToSchema[T] {
   protected val schema: Schema
+
   def apply(): Schema = schema
 }
 
@@ -255,41 +256,49 @@ object SchemaFor {
 
   implicit object ByteSchemaFor extends SchemaFor[Byte] {
     private val schema = SchemaBuilder.builder().intType()
+
     def apply(): org.apache.avro.Schema = schema
   }
 
   implicit object ShortSchemaFor extends SchemaFor[Short] {
     private val schema = SchemaBuilder.builder().intType()
+
     def apply(): org.apache.avro.Schema = schema
   }
 
   implicit object LongSchemaFor extends SchemaFor[Long] {
     private val schema = SchemaBuilder.builder().longType()
+
     def apply(): org.apache.avro.Schema = schema
   }
 
   implicit object IntSchemaFor extends SchemaFor[Int] {
     private val schema = SchemaBuilder.builder().intType()
+
     def apply(): org.apache.avro.Schema = schema
   }
 
   implicit object FloatSchemaFor extends SchemaFor[Float] {
     private val schema = SchemaBuilder.builder().floatType()
+
     def apply(): org.apache.avro.Schema = schema
   }
 
   implicit object DoubleSchemaFor extends SchemaFor[Double] {
     private val schema = SchemaBuilder.builder().doubleType()
+
     def apply(): org.apache.avro.Schema = schema
   }
 
   implicit object BooleanSchemaFor extends SchemaFor[Boolean] {
     private val schema = SchemaBuilder.builder().booleanType()
+
     def apply(): org.apache.avro.Schema = schema
   }
 
   implicit object StringSchemaFor extends SchemaFor[String] {
     private val schema = SchemaBuilder.builder().stringType()
+
     def apply(): org.apache.avro.Schema = schema
   }
 
@@ -316,6 +325,25 @@ object SchemaFor {
       q"_root_.com.sksamuel.avro4s.Anno($name, $args)"
     }
 
+    def genericNameSuffix(underlyingType: c.universe.Type): String = {
+      lazy val isAnnotated = underlyingType.typeSymbol.annotations.exists { a =>
+        a.tree.tpe.typeSymbol.fullName match {
+          case "com.sksamuel.avro4s.AvroSpecificGeneric" =>
+            val args = a.tree.children.tail.map(_.toString.stripPrefix("\"").stripSuffix("\""))
+            args match {
+              case head :: Nil => head.toBoolean
+              case _ => false
+            }
+          case _ => false
+        }
+      }
+      if (underlyingType.typeArgs.nonEmpty && isAnnotated) {
+        underlyingType.typeArgs.map(_.typeSymbol.name.decodedName.toString).mkString("_", "_", "")
+      } else {
+        ""
+      }
+    }
+
     lazy val fixedAnnotation: Option[AvroFixed] = tType.typeSymbol.annotations.collectFirst {
       case anno if anno.tree.tpe <:< c.weakTypeOf[AvroFixed] =>
         anno.tree.children.tail match {
@@ -332,7 +360,7 @@ object SchemaFor {
     val sealedTraitOrClass = underlyingType.typeSymbol.isClass && underlyingType.typeSymbol.asClass.isSealed
 
     // name of the actual class we are building
-    val name = underlyingType.typeSymbol.name.decodedName.toString
+    val name = underlyingType.typeSymbol.name.decodedName.toString + genericNameSuffix(underlyingType)
 
     // the default namespace is just the package name
     val defaultNamespace = Stream.iterate(underlyingType.typeSymbol.owner)(_.owner).dropWhile(!_.isPackage).head.fullName
@@ -363,7 +391,7 @@ object SchemaFor {
 
         if (f.isTerm && f.asTerm.isParamWithDefault && member.isMethod) {
           q"""{ _root_.com.sksamuel.avro4s.SchemaFor.fieldBuilder[$sig]($fieldName, Seq(..$annos), $member, $defaultNamespace) }"""
-        } else if (f.typeSignature.<:<(typeOf[scala.Enumeration#Value])) {
+        } else if (f.typeSignature.<:<(typeOf[Enumeration#Value])) {
           val enumClass = f.typeSignature.toString.stripSuffix(".Value")
           q"""{ _root_.com.sksamuel.avro4s.SchemaFor.enumBuilder($fieldName, $enumClass) }"""
         } else {
