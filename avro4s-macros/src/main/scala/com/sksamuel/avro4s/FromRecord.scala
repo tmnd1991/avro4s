@@ -107,7 +107,7 @@ object FromValue extends LowPriorityFromValue {
       value match {
         case record: GenericRecord =>
           val instant = Instant.ofEpochMilli(record.get(ZonedDateTimeToSchema.EPOCH).asInstanceOf[Long])
-          val zone = ZoneId.of(record.get(ZonedDateTimeToSchema.ZONE).asInstanceOf[String])
+          val zone = ZoneId.of(record.get(ZonedDateTimeToSchema.ZONE).toString)
           ZonedDateTime.ofInstant(instant, zone)
         case _ => sys.error("unknown field")
       }

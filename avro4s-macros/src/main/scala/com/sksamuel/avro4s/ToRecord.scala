@@ -91,7 +91,7 @@ object ToValue extends LowPriorityToValue {
 
   implicit object ZoneIdToValue extends ToValue[ZoneId] with Serializable {
     override def apply(value: ZoneId): String = {
-      value.getId
+      value.getId()
     }
   }
 

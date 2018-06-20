@@ -1,6 +1,6 @@
 package com.sksamuel.avro4s
 
-import java.time.LocalDate
+import java.time.{LocalDate, ZoneId}
 import java.util.UUID
 
 import org.scalatest.{Matchers, WordSpec}
@@ -29,6 +29,7 @@ case class Level1(level2: Level2)
 case class Ids(myid: UUID)
 
 case class LocalDateTest(localDate: LocalDate)
+case class ZoneIdTest(zoneId: ZoneId)
 
 case class Recursive(payload: Int, next: Option[Recursive])
 
@@ -378,6 +379,11 @@ class AvroSchemaTest extends WordSpec with Matchers {
   "support Seq[Tuple3]" in {
     val expected = new org.apache.avro.Schema.Parser().parse(getClass.getResourceAsStream("/tuple3.json"))
     val schema = SchemaFor[TupleTest3]()
+    schema.toString(true) shouldBe expected.toString(true)
+  }
+  "support ZoneId" in {
+    val schema = SchemaFor[ZoneIdTest]()
+    val expected = new org.apache.avro.Schema.Parser().parse(getClass.getResourceAsStream("/zoneId.json"))
     schema.toString(true) shouldBe expected.toString(true)
   }
 

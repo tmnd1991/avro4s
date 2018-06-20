@@ -1,0 +1,9 @@
+{
+  "type" : "record",
+  "name" : "ZoneIdTest",
+  "namespace" : "com.sksamuel.avro4s",
+  "fields" : [ {
+    "name" : "zoneId",
+    "type" : "string"
+  } ]
+}

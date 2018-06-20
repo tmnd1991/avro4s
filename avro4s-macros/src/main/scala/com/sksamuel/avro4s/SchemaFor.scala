@@ -138,16 +138,12 @@ object ToSchema extends LowPriorityToSchema {
     }
   }
 
-  implicit object ZoneIdToSchema extends SchemaFor[ZoneId] with Serializable {
-    private lazy val schema: Schema = Schema.create(Schema.Type.STRING)
-
-    override def apply(): Schema = schema
+  implicit object ZoneIdToSchema extends ToSchema[ZoneId] with Serializable {
+    override protected val schema: Schema = Schema.create(Schema.Type.STRING)
   }
 
-  implicit object TimestampToSchema extends SchemaFor[java.sql.Timestamp] with Serializable {
-    private lazy val schema: Schema = Schema.create(Schema.Type.LONG)
-
-    override def apply(): Schema = schema
+  implicit object TimestampToSchema extends ToSchema[java.sql.Timestamp] with Serializable {
+    override protected val schema: Schema = Schema.create(Schema.Type.LONG)
   }
 
   implicit object LocalDateToSchema extends ToSchema[LocalDate] {
