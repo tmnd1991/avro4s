@@ -1,11 +1,25 @@
 {
-  "type": "record",
-  "name": "Ids",
-  "namespace": "com.sksamuel.avro4s",
-  "fields": [
-    {
-      "name": "myid",
-      "type": "string"
+  "type" : "record",
+  "name" : "Ids",
+  "namespace" : "com.sksamuel.avro4s",
+  "fields" : [ {
+    "name" : "myid",
+    "type" : {
+      "type" : "record",
+      "name" : "UUID",
+      "namespace" : "java.util",
+      "doc" : "",
+      "fields" : [ {
+        "name" : "most",
+        "type" : "long",
+        "doc" : "",
+        "order" : "ignore"
+      }, {
+        "name" : "least",
+        "type" : "long",
+        "doc" : "",
+        "order" : "ignore"
+      } ]
     }
-  ]
+  } ]
 }

@@ -1,13 +1,13 @@
 package com.sksamuel.avro4s
 
 import java.nio.ByteBuffer
-import java.time.{LocalDate, LocalDateTime}
+import java.time.{LocalDate, LocalDateTime, ZoneId, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
-import com.sksamuel.avro4s.ToSchema.defaultScaleAndPrecisionAndRoundingMode
+import com.sksamuel.avro4s.ToSchema.{UUIDToSchema, ZonedDateTimeToSchema, defaultScaleAndPrecisionAndRoundingMode}
 import org.apache.avro.generic.GenericData.EnumSymbol
-import org.apache.avro.generic.GenericRecord
+import org.apache.avro.generic.{GenericData, GenericRecord}
 import org.apache.avro.{Conversions, LogicalTypes}
 import shapeless.ops.coproduct.Reify
 import shapeless.{:+:, CNil, Coproduct, Generic, Inl, Inr, Lazy}
@@ -67,11 +67,36 @@ object ToValue extends LowPriorityToValue {
   implicit object LongToValue extends ToValue[Long]
 
   implicit object UUIDToValue extends ToValue[UUID] {
-    override def apply(value: UUID): String = value.toString
+
+    override def apply(t: UUID): GenericRecord = {
+      val record = new GenericData.Record(UUIDToSchema.schema)
+      record.put(UUIDToSchema.MOST, t.getMostSignificantBits)
+      record.put(UUIDToSchema.LEAST, t.getLeastSignificantBits)
+      record
+    }
+  }
+
+  implicit object ZonedDateTimeToValue extends ToValue[ZonedDateTime] {
+    override def apply(t: ZonedDateTime): GenericRecord = {
+      val record = new GenericData.Record(ZonedDateTimeToSchema.schema)
+      record.put(ZonedDateTimeToSchema.EPOCH, t.toInstant.toEpochMilli)
+      record.put(ZonedDateTimeToSchema.ZONE, t.getZone.getId)
+      record
+    }
+  }
+
+  implicit object TimestampToValue extends ToValue[java.sql.Timestamp] with Serializable {
+    override def apply(value: java.sql.Timestamp): Long = value.getTime
+  }
+
+  implicit object ZoneIdToValue extends ToValue[ZoneId] with Serializable {
+    override def apply(value: ZoneId): String = {
+      value.getId
+    }
   }
 
   implicit object LocalDateToValue extends ToValue[LocalDate] {
-    override def apply(value: LocalDate): String = value.format(DateTimeFormatter.ISO_LOCAL_DATE)
+    override def apply(value: LocalDate): Long = value.toEpochDay
   }
 
   implicit object LocalDateTimeToValue extends ToValue[LocalDateTime] {

@@ -1,10 +1,10 @@
 package com.sksamuel.avro4s
 
 import java.nio.ByteBuffer
-import java.time.{LocalDate, LocalDateTime}
+import java.time._
 import java.util.UUID
 
-import com.sksamuel.avro4s.ToSchema.defaultScaleAndPrecisionAndRoundingMode
+import com.sksamuel.avro4s.ToSchema.{UUIDToSchema, ZonedDateTimeToSchema, defaultScaleAndPrecisionAndRoundingMode}
 import org.apache.avro.Schema.Field
 import org.apache.avro.generic.{GenericData, GenericRecord}
 import org.apache.avro.util.Utf8
@@ -20,7 +20,7 @@ import scala.reflect.runtime.universe._
 
 // turns an avro value into a scala value
 // type T is the target scala type
-trait FromValue[T] {
+trait FromValue[T] extends Serializable {
   def apply(value: Any, field: Field = null): T
 }
 
@@ -45,6 +45,7 @@ object FromValue extends LowPriorityFromValue {
     new FromValue[BigDecimal] {
       val decimalConversion = new Conversions.DecimalConversion
       val decimalType = LogicalTypes.decimal(sp.precision, sp.scale)
+
       override def apply(value: Any, field: Field): BigDecimal = {
         decimalConversion.fromBytes(value.asInstanceOf[ByteBuffer], null, decimalType)
       }
@@ -92,14 +93,32 @@ object FromValue extends LowPriorityFromValue {
   }
 
   implicit object UUIDFromValue extends FromValue[UUID] {
-    override def apply(value: Any, field: Field): UUID = UUID.fromString(value.toString)
+    override def apply(value: Any, field: Field): UUID = {
+      value match {
+        case record: GenericRecord =>
+          new UUID(record.get(UUIDToSchema.MOST).asInstanceOf[Long], record.get(UUIDToSchema.LEAST).asInstanceOf[Long])
+        case _ => sys.error("unknown field")
+      }
+    }
+  }
+
+  implicit object ZonedDateTimeFromRecord extends FromValue[ZonedDateTime] {
+    override def apply(value: Any, field: Field): ZonedDateTime = {
+      value match {
+        case record: GenericRecord =>
+          val instant = Instant.ofEpochMilli(record.get(ZonedDateTimeToSchema.EPOCH).asInstanceOf[Long])
+          val zone = ZoneId.of(record.get(ZonedDateTimeToSchema.ZONE).asInstanceOf[String])
+          ZonedDateTime.ofInstant(instant, zone)
+        case _ => sys.error("unknown field")
+      }
+    }
   }
 
   implicit object LocalDateFromValue extends FromValue[LocalDate] {
-    override def apply(value: Any, field: Field): LocalDate = LocalDate.parse(value.toString)
+    override def apply(value: Any, field: Field): LocalDate = LocalDate.ofEpochDay(value.asInstanceOf[Long])
   }
 
-  implicit object LocalDateTimeToValue extends FromValue[LocalDateTime] {
+  implicit object LocalDateTimeFromValue extends FromValue[LocalDateTime] {
     override def apply(value: Any, field: Field): LocalDateTime = LocalDateTime.parse(value.toString)
   }
 
@@ -111,10 +130,24 @@ object FromValue extends LowPriorityFromValue {
     override def apply(value: Any, field: Field): E = Enum.valueOf(tag.runtimeClass.asInstanceOf[Class[E]], value.toString)
   }
 
+  implicit object TimestampFromValue extends FromValue[java.sql.Timestamp] with Serializable {
+    override def apply(value: Any, field: Field): java.sql.Timestamp = new java.sql.Timestamp(value.asInstanceOf[Long])
+  }
+
+  implicit object ZoneIdFromValue extends FromValue[ZoneId] with Serializable {
+    override def apply(value: Any, field: Field): ZoneId = {
+      ZoneId.of(value.asInstanceOf[Utf8].toString)
+    }
+  }
+
   implicit def ScalaEnumFromValue[E <: Enumeration#Value](implicit tag: TypeTag[E]) = new FromValue[E] {
-    val typeRef = tag.tpe match { case t @ TypeRef(_, _, _) => t}
+    val typeRef = tag.tpe match {
+      case t@TypeRef(_, _, _) => t
+    }
     val klass = Class.forName(typeRef.pre.typeSymbol.asClass.fullName + "$")
+
     import scala.reflect.NameTransformer._
+
     val enum = klass.getField(MODULE_INSTANCE_NAME).get(null).asInstanceOf[Enumeration]
 
     override def apply(value: Any, field: Field): E = {

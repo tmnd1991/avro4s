@@ -389,7 +389,8 @@ class AvroOutputStreamTest extends WordSpec with Matchers with TimeLimits {
       avro.close()
 
       val record = read[Ids](output)
-      UUID.fromString(record.get("myid").toString) shouldBe instance.myid
+      val innerRecord = record.get("myid").asInstanceOf[GenericRecord]
+      new UUID(innerRecord.get("most").asInstanceOf[Long], innerRecord.get("least").asInstanceOf[Long]) shouldBe instance.myid
     }
     "support LocalDates" in {
       val instance = LocalDateTest(LocalDate.now())
@@ -400,7 +401,7 @@ class AvroOutputStreamTest extends WordSpec with Matchers with TimeLimits {
       avro.close()
 
       val record = read[LocalDateTest](output)
-      LocalDate.parse(record.get("localDate").toString) shouldBe instance.localDate
+      LocalDate.ofEpochDay(record.get("localDate").asInstanceOf[Long]) shouldBe instance.localDate
     }
     "write Vector of primitives as arrays" in {
       case class VectorPrim(ints: Vector[Int])

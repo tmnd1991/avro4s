@@ -4,6 +4,6 @@
   "namespace" : "com.sksamuel.avro4s",
   "fields" : [ {
     "name" : "localDate",
-    "type" : "string"
+    "type" : "long"
   } ]
 }

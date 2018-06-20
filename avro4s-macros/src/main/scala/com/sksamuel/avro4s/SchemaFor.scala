@@ -1,15 +1,14 @@
 package com.sksamuel.avro4s
 
-import java.time.{LocalDate, LocalDateTime}
+import java.time.{LocalDate, LocalDateTime, ZoneId}
 import java.util
 
-import org.apache.avro.Schema.Field
 import org.apache.avro.{JsonProperties, LogicalTypes, Schema, SchemaBuilder}
 import shapeless.ops.coproduct.Reify
 import shapeless.ops.hlist.ToList
 import shapeless.{:+:, CNil, Coproduct, Generic, HList, Lazy}
 
-import scala.annotation.implicitNotFound
+import scala.annotation.{implicitNotFound, tailrec}
 import scala.collection.JavaConverters._
 import scala.language.experimental.macros
 import scala.math.BigDecimal.RoundingMode.{RoundingMode, UNNECESSARY}
@@ -111,11 +110,48 @@ object ToSchema extends LowPriorityToSchema {
   }
 
   implicit object UUIDToSchema extends ToSchema[java.util.UUID] {
-    protected val schema = Schema.create(Schema.Type.STRING)
+    val MOST: String = "most"
+    val LEAST: String = "least"
+
+    val schema = {
+      val s = Schema.createRecord("UUID", "", "java.util", false)
+
+      s.setFields(util.Arrays.asList(
+        new Schema.Field(MOST, Schema.create(Schema.Type.LONG), "", null: Object, Schema.Field.Order.IGNORE),
+        new Schema.Field(LEAST, Schema.create(Schema.Type.LONG), "", null: Object, Schema.Field.Order.IGNORE)
+      ))
+      s
+    }
+  }
+
+  implicit object ZonedDateTimeToSchema extends ToSchema[java.time.ZonedDateTime] {
+    val EPOCH: String = "epoch"
+    val ZONE: String = "zone"
+
+    val schema = {
+      val s = Schema.createRecord("ZonedDateTime", "", "java.time", false)
+      s.setFields(util.Arrays.asList(
+        new Schema.Field(EPOCH, Schema.create(Schema.Type.LONG), "", null: Object, Schema.Field.Order.IGNORE),
+        new Schema.Field(ZONE, Schema.create(Schema.Type.STRING), "", null: Object, Schema.Field.Order.IGNORE)
+      ))
+      s
+    }
+  }
+
+  implicit object ZoneIdToSchema extends SchemaFor[ZoneId] with Serializable {
+    private lazy val schema: Schema = Schema.create(Schema.Type.STRING)
+
+    override def apply(): Schema = schema
+  }
+
+  implicit object TimestampToSchema extends SchemaFor[java.sql.Timestamp] with Serializable {
+    private lazy val schema: Schema = Schema.create(Schema.Type.LONG)
+
+    override def apply(): Schema = schema
   }
 
   implicit object LocalDateToSchema extends ToSchema[LocalDate] {
-    protected val schema = Schema.create(Schema.Type.STRING)
+    protected val schema = Schema.create(Schema.Type.LONG)
   }
 
   implicit object LocalDateTimeToSchema extends ToSchema[LocalDateTime] {
@@ -521,6 +557,7 @@ object SchemaFor {
                            default: Any,
                            parentNamespace: String): Schema.Field = {
 
+    @tailrec
     def toDefaultValue(value: Any): Any = value match {
       case x: Int => x
       case x: Long => x
@@ -528,7 +565,7 @@ object SchemaFor {
       case x: Double => x
       case x: Seq[_] => x.asJava
       case x: Map[_, _] => x.asJava
-      case Some(x) => x
+      case Some(x) => toDefaultValue(x)
       case None => JsonProperties.NULL_VALUE
       case _ => value.toString
     }
@@ -582,7 +619,7 @@ object SchemaFor {
     schema.getType match {
       case Schema.Type.RECORD =>
         val fields = schema.getFields.asScala.map(field =>
-          new Field(field.name(), overrideNamespace(field.schema(), namespace), field.doc, field.defaultVal, field.order))
+          new Schema.Field(field.name(), overrideNamespace(field.schema(), namespace), field.doc, field.defaultVal, field.order))
         Schema.createRecord(schema.getName, schema.getDoc, namespace, schema.isError, fields.asJava)
       case Schema.Type.UNION => Schema.createUnion(schema.getTypes.asScala.map(overrideNamespace(_, namespace)).asJava)
       case Schema.Type.ENUM => Schema.createEnum(schema.getName, schema.getDoc, namespace, schema.getEnumSymbols)

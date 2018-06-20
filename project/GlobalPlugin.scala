@@ -26,7 +26,7 @@ object GlobalPlugin extends AutoPlugin {
     scalacOptions := Seq("-unchecked", "-deprecation", "-encoding", "utf8", "-Ywarn-unused-import",
       "-Xfatal-warnings", "-feature", "-language:existentials"
     ),
-    javacOptions := Seq("-source", "1.7", "-target", "1.7"),
+    javacOptions := Seq("-source", "1.8", "-target", "1.8"),
     libraryDependencies ++= Seq(
       "org.scala-lang"    % "scala-reflect"     % scalaVersion.value,
       "org.apache.avro"   % "avro"              % AvroVersion,
