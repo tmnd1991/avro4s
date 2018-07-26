@@ -389,7 +389,9 @@ object SchemaFor {
     } else {
       tType
     }
-    val sealedTraitOrClass = underlyingType.typeSymbol.isClass && underlyingType.typeSymbol.asClass.isSealed
+    val isADT = underlyingType.typeSymbol.isClass && !underlyingType.typeSymbol.asClass.isCaseClass &&
+      underlyingType.typeSymbol.asClass.isSealed
+
 
     // name of the actual class we are building
     val name = underlyingType.typeSymbol.name.decodedName.toString + genericNameSuffix(underlyingType)
@@ -400,7 +402,7 @@ object SchemaFor {
     // we read all annotations into quasi-quotable Anno dtos
     val annos = annotations(underlyingType.typeSymbol)
 
-    val fieldSchemaPartTrees: Seq[Tree] = if (sealedTraitOrClass) {
+    val fieldSchemaPartTrees: Seq[Tree] = if (isADT) {
       c.abort(c.prefix.tree.pos, "Sealed traits/classes should be handled by coproduct generic!")
     } else {
 
